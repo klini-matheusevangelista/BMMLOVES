@@ -38,6 +38,7 @@ const SPOTIFY_MAP: Record<string, string> = {
   "Make You Feel My Love — Adele":             "1TfqLAPs4K3s2rJMoCokcS",
   "Photograph — Ed Sheeran":                   "1HNkqx9Ahdgi1Ixy2xkykT",
   "Die With A Smile — Lady Gaga & Bruno Mars": "2plbrEY59IikOBgBGLjaoe",
+  "Evidências — Chitãozinho & Xororó":         "5mHzMlVi8OMJKnK5SmRK7a",
 };
 
 export default function CasalPage() {
@@ -59,6 +60,7 @@ export default function CasalPage() {
   const playerEp = playerIdx !== null && page ? page.episodios[playerIdx] : null;
   const playerOpenedAt = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [spotifyIdOverride, setSpotifyIdOverride] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/pages/${pageId}`)
@@ -81,6 +83,24 @@ export default function CasalPage() {
     }, 5000);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [momentoAberto, fotoIdx, barKey]);
+
+  useEffect(() => {
+    if (!page?.musicaUrl?.trim()) return;
+    const musicaUrl = page.musicaUrl;
+    const hasSpotifyUrl = /spotify(?:\.com)?[:/](?:intl-[a-z]+\/)?track[/:]([a-zA-Z0-9]+)/.test(musicaUrl);
+    const hasMapMatch = !!SPOTIFY_MAP[musicaUrl];
+    if (hasSpotifyUrl || hasMapMatch) return;
+    fetch(`/api/spotify-search?q=${encodeURIComponent(musicaUrl)}`)
+      .then(r => r.json())
+      .then(json => {
+        const url: string = json.results?.[0]?.spotifyUrl;
+        if (url) {
+          const m = url.match(/track\/([a-zA-Z0-9]+)/);
+          if (m) setSpotifyIdOverride(m[1]);
+        }
+      })
+      .catch(() => {});
+  }, [page?.musicaUrl]);
 
   if (state === "loading") {
     return (
@@ -144,7 +164,8 @@ export default function CasalPage() {
   const D = page;
   const tituloExibido = D.tituloFilme || D.titulo || "Nossa História";
   const spotifyMatch = (D.musicaUrl || "").match(/spotify(?:\.com)?[:/](?:intl-[a-z]+\/)?track[/:]([a-zA-Z0-9]+)/);
-  const spotifyId = spotifyMatch ? spotifyMatch[1] : (SPOTIFY_MAP[D.musicaUrl] ?? null);
+  const spotifyIdFromData = spotifyMatch ? spotifyMatch[1] : (SPOTIFY_MAP[D.musicaUrl] ?? null);
+  const spotifyId = spotifyIdOverride ?? spotifyIdFromData;
 
   return (
     <div className="min-h-screen bg-[#141414] text-white">

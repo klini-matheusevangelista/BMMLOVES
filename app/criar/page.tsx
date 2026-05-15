@@ -259,7 +259,7 @@ function CriarPageInner() {
   const [cidadeFocus, setCidadeFocus] = useState(false);
 
   // música search
-  type MusicaResult = { nome: string; artista: string; capa: string };
+  type MusicaResult = { nome: string; artista: string; capa: string; spotifyUrl: string };
   const [musicaResultados, setMusicaResultados] = useState<MusicaResult[]>([]);
   const [musicaLoading, setMusicaLoading] = useState(false);
   const [musicaFocus, setMusicaFocus] = useState(false);
@@ -272,23 +272,26 @@ function CriarPageInner() {
     }
     setMusicaLoading(true);
     try {
-      const res = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=6&country=BR`
-      );
+      const res = await fetch(`/api/spotify-search?q=${encodeURIComponent(query)}`);
       const json = await res.json();
-      setMusicaResultados(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        json.results.map((r: any) => ({
-          nome: r.trackName,
-          artista: r.artistName,
-          capa: r.artworkUrl60,
-        }))
-      );
+      setMusicaResultados(json.results || []);
     } catch {
       setMusicaResultados([]);
     } finally {
       setMusicaLoading(false);
     }
+  };
+
+  const selectRecomendacao = async (titulo: string, artista: string) => {
+    // Mostra o nome imediatamente enquanto busca o URL do Spotify em background
+    setData(prev => ({ ...prev, musicaUrl: `${titulo} — ${artista}` }));
+    try {
+      const res = await fetch(`/api/spotify-search?q=${encodeURIComponent(`${titulo} ${artista}`)}`);
+      const json = await res.json();
+      if (json.results?.[0]?.spotifyUrl) {
+        setData(prev => ({ ...prev, musicaUrl: json.results[0].spotifyUrl }));
+      }
+    } catch {}
   };
 
   const handleMusicaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -716,7 +719,7 @@ function CriarPageInner() {
                         key={i}
                         type="button"
                         onPointerDown={() => {
-                          setData(prev => ({ ...prev, musicaUrl: `${m.nome} — ${m.artista}` }));
+                          setData(prev => ({ ...prev, musicaUrl: m.spotifyUrl || `${m.nome} — ${m.artista}` }));
                           setMusicaResultados([]);
                           setMusicaFocus(false);
                         }}
@@ -756,9 +759,9 @@ function CriarPageInner() {
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setData(prev => ({ ...prev, musicaUrl: `${m.titulo} — ${m.artista}` }))}
+                      onClick={() => selectRecomendacao(m.titulo, m.artista)}
                       className={`text-left px-3 py-2.5 rounded-lg border transition-all text-xs ${
-                        data.musicaUrl === `${m.titulo} — ${m.artista}`
+                        data.musicaUrl.includes(m.titulo) && data.musicaUrl.includes(m.artista)
                           ? "border-[#E8185A] bg-[#E8185A]/10 text-white"
                           : "border-white/8 bg-[#1a1a1a] text-gray-400 hover:border-white/20 hover:text-white"
                       }`}
