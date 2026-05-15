@@ -48,7 +48,20 @@ function ProntoPageInner() {
     : "";
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(pageUrl);
+    try {
+      await navigator.clipboard.writeText(pageUrl);
+    } catch {
+      // Fallback for mobile browsers (iOS Safari blocks async clipboard access)
+      const el = document.createElement("textarea");
+      el.value = pageUrl;
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
